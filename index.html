@@ -1,0 +1,1658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0e0e10">
+<title>LLM Playground</title>
+<style>
+/* ==================================================================
+   1. COLOURS AND FONTS
+   ================================================================== */
+:root {
+  --bg: #0e0e10;
+  --panel: #16161a;
+  --panel-2: #1d1d22;
+  --border: #2a2a31;
+  --text: #d4d4d8;
+  --text-strong: #f0f0f3;
+  --muted: #8b8b95;
+  --faint: #55555e;
+  --accent: #f55036;
+  --accent-dim: #2e1611;
+  --green: #22c55e;
+  --green-dim: #0f2a1a;
+  --amber: #f5a524;
+  --amber-dim: #33260c;
+  --red: #f26b6b;
+  --red-dim: #2e1515;
+  --code-bg: #0a0a0c;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --radius: 8px;
+  --transition: 0.15s ease;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 14px/1.5 var(--sans);
+  display: flex; flex-direction: column;
+}
+a { color: var(--accent); }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ==================================================================
+   2. TOP BAR
+   ================================================================== */
+.topbar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 10px 16px; background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 5;
+}
+.topbar-brand { display: flex; align-items: center; gap: 8px; }
+.topbar-brand svg { opacity: 0.85; }
+.topbar h1 { font-size: 15px; margin: 0; color: var(--text-strong); letter-spacing: -0.01em; }
+.model-picker { display: flex; flex-direction: column; min-width: 240px; }
+#modelsStatus { font-size: 11px; color: var(--muted); margin-top: 2px; display: flex; align-items: center; gap: 5px; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.status-dot.live { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.status-dot.loading { background: var(--amber); animation: pulse 1s infinite; }
+.status-dot.error { background: var(--red); }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+.spacer { flex: 1; }
+.live-badge {
+  background: var(--green-dim); color: var(--green); border: 1px solid #1a4a2a;
+  border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600;
+  display: flex; align-items: center; gap: 5px;
+}
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+
+/* ==================================================================
+   3. THREE-COLUMN LAYOUT
+   ================================================================== */
+.layout { flex: 1; display: grid; grid-template-columns: 280px 1fr 340px; min-height: 0; }
+.col { overflow-y: auto; padding: 16px; min-height: 0; }
+.col-params { background: var(--panel); border-right: 1px solid var(--border); }
+.col-insights { background: var(--panel); border-left: 1px solid var(--border); }
+.col-chat { display: flex; flex-direction: column; padding: 0; }
+
+/* ==================================================================
+   4. FORM CONTROLS
+   ================================================================== */
+label.field {
+  display: flex; align-items: center; justify-content: space-between;
+  font-weight: 600; font-size: 12px; color: var(--text-strong);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  margin: 20px 0 7px;
+}
+label.field:first-child { margin-top: 0; }
+label.field .field-value {
+  font-weight: 400; text-transform: none; letter-spacing: 0;
+  color: var(--accent); font-family: var(--mono); font-size: 12px;
+}
+
+input[type=text], input[type=password], input[type=number], textarea, select {
+  width: 100%; background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 7px 9px; font: inherit;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+input:focus, textarea:focus, select:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(245,80,54,0.15);
+}
+input.invalid { border-color: var(--red); box-shadow: 0 0 0 2px rgba(242,107,107,0.15); }
+textarea { resize: vertical; }
+.note { font-size: 11.5px; color: var(--muted); margin: 5px 0 0; line-height: 1.4; }
+.row { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.row label { font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.slider-row { display: flex; align-items: center; gap: 8px; }
+.slider-row input[type=range] { flex: 1; accent-color: var(--accent); cursor: pointer; }
+.slider-row input[type=number] { width: 76px; }
+
+button {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 6px 12px; font: inherit; cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), color var(--transition);
+}
+button:hover { border-color: var(--muted); background: #25252c; }
+button:active { transform: scale(0.97); }
+button.primary {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+  font-weight: 600; padding: 7px 20px;
+}
+button.primary:hover { background: #e8402a; border-color: #e8402a; }
+button.stop { background: var(--red-dim); border-color: var(--red); color: var(--red); font-weight: 600; padding: 7px 20px; }
+button.stop:hover { background: #3a1c1c; }
+button.small { padding: 3px 9px; font-size: 12px; border-radius: 6px; }
+button.wide { width: 100%; margin-top: 22px; }
+button.danger { color: var(--red); border-color: var(--red-dim); }
+button.danger:hover { background: var(--red-dim); border-color: var(--red); }
+
+/* Toggle switch */
+.toggle {
+  display: flex; align-items: center; gap: 10px; margin-top: 20px;
+  font-weight: 600; font-size: 12px; color: var(--text-strong);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  cursor: pointer; user-select: none;
+}
+.switch {
+  appearance: none; -webkit-appearance: none; margin: 0; flex-shrink: 0; cursor: pointer;
+  width: 36px; height: 20px; border-radius: 999px; background: var(--border);
+  position: relative; transition: background var(--transition);
+}
+.switch::after {
+  content: ""; position: absolute; top: 3px; left: 3px;
+  width: 14px; height: 14px; border-radius: 50%; background: var(--muted);
+  transition: left var(--transition), background var(--transition);
+}
+.switch:checked { background: var(--accent); }
+.switch:checked::after { left: 19px; background: #fff; }
+.switch:disabled { opacity: 0.35; cursor: not-allowed; }
+.reason { font-size: 11.5px; color: var(--amber); margin-top: 4px; min-height: 16px; }
+
+/* Divider */
+.divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+/* ==================================================================
+   5. CHAT TRANSCRIPT AND BUBBLES
+   ================================================================== */
+#transcript {
+  flex: 1; overflow-y: auto; padding: 20px 16px;
+  display: flex; flex-direction: column; gap: 16px; min-height: 0;
+}
+.msg {
+  max-width: 86%; border: 1px solid var(--border);
+  border-radius: 12px; padding: 11px 14px;
+  animation: fadeIn 0.18s ease;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.msg.user {
+  align-self: flex-end; background: var(--accent-dim); border-color: #5a2a20;
+  white-space: pre-wrap; font: 13px/1.5 var(--mono);
+  border-bottom-right-radius: 4px;
+}
+.msg.assistant {
+  align-self: flex-start; width: 86%; background: var(--panel);
+  border-bottom-left-radius: 4px;
+}
+.notice {
+  align-self: center; color: var(--muted); font-size: 12px; text-align: center;
+  padding: 6px 14px; background: var(--panel-2); border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.msg-timestamp { font-size: 10px; color: var(--faint); margin-bottom: 6px; }
+.meta { font-size: 11px; color: var(--muted); margin: 6px 0; }
+.status { font-size: 12px; color: var(--amber); margin: 4px 0; display: flex; align-items: center; gap: 5px; }
+.status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--amber); animation: pulse 1s infinite; flex-shrink: 0; }
+.status.done { color: var(--muted); }
+.status.done::before { background: var(--muted); animation: none; }
+
+details { margin: 6px 0; border: 1px solid var(--border); border-radius: 6px; background: var(--panel-2); }
+summary { cursor: pointer; padding: 5px 9px; font-size: 12px; color: var(--muted); user-select: none; }
+summary:hover { color: var(--text); }
+details pre, .thinking-text {
+  margin: 0; padding: 8px 10px; border-top: 1px solid var(--border);
+  font: 12px/1.5 var(--mono); white-space: pre-wrap; word-break: break-word;
+  max-height: 280px; overflow: auto;
+}
+.thinking-text { color: var(--muted); }
+
+/* Markdown output */
+.answer p { margin: 0 0 8px; }
+.answer p:last-child { margin-bottom: 0; }
+.answer h3, .answer h4 { margin: 12px 0 6px; color: var(--text-strong); }
+.answer ul, .answer ol { margin: 0 0 8px; padding-left: 22px; }
+.answer li { margin-bottom: 2px; }
+.answer code {
+  font-family: var(--mono); font-size: 12.5px;
+  background: var(--code-bg); padding: 1px 5px; border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.answer table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 13px; }
+.answer th, .answer td { border: 1px solid var(--border); padding: 5px 9px; text-align: left; }
+.answer th { background: var(--panel-2); color: var(--text-strong); font-weight: 600; }
+.answer tr:hover td { background: rgba(255,255,255,0.02); }
+.code-wrap { position: relative; margin: 8px 0; }
+.code-lang {
+  position: absolute; top: 0; left: 0;
+  font: 10px/1 var(--mono); color: var(--faint);
+  padding: 5px 8px; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.code-wrap pre {
+  margin: 0; padding: 10px 10px 10px 10px;
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 8px; overflow-x: auto;
+}
+.code-wrap pre code { background: none; padding: 0; border: none; font: 12.5px/1.6 var(--mono); }
+.code-wrap .copy-code {
+  position: absolute; top: 6px; right: 6px;
+  opacity: 0; transition: opacity var(--transition);
+}
+.code-wrap:hover .copy-code { opacity: 1; }
+.cite { font-size: 12px; text-decoration: none; margin-right: 2px; vertical-align: super; font-size: 10px; }
+
+.sources { display: grid; gap: 6px; margin-top: 8px; }
+.source-card {
+  display: flex; flex-direction: column; padding: 7px 10px;
+  border: 1px solid var(--border); border-radius: 7px;
+  background: var(--panel-2); color: var(--text); text-decoration: none;
+  transition: border-color var(--transition), background var(--transition);
+}
+.source-card:hover { border-color: var(--accent); background: var(--accent-dim); }
+.source-card .title { font-size: 12.5px; }
+.source-card .host { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+.msg-footer { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+.badge.amber { color: var(--amber); border-color: var(--amber); background: var(--amber-dim); }
+.warning { color: var(--amber); font-size: 13px; margin-top: 6px; }
+.error {
+  margin-top: 8px; padding: 9px 11px;
+  background: var(--red-dim); border: 1px solid var(--red);
+  border-radius: 7px; color: var(--red); font-size: 13px;
+}
+.error .raw { display: block; margin-top: 4px; color: var(--muted); font: 11px/1.4 var(--mono); word-break: break-word; }
+
+/* Scroll-to-bottom pill */
+#scrollPill {
+  position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%);
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 999px; padding: 5px 14px; font-size: 12px; color: var(--muted);
+  cursor: pointer; z-index: 4;
+  transition: opacity var(--transition), transform var(--transition);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+}
+#scrollPill:hover { color: var(--text); border-color: var(--muted); }
+
+/* Composer */
+.chat-wrapper { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.composer { border-top: 1px solid var(--border); padding: 12px 16px; background: var(--panel); }
+#prompt { font: 13px/1.5 var(--mono); min-height: 90px; max-height: 320px; overflow-y: auto; resize: none; }
+.composer-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px; }
+.hint { font-size: 11px; color: var(--faint); }
+.char-count { font-size: 11px; color: var(--faint); font-family: var(--mono); }
+
+/* ==================================================================
+   6. RIGHT-COLUMN PANELS
+   ================================================================== */
+.panel {
+  border: 1px solid var(--border); border-radius: 10px; padding: 13px;
+  margin-bottom: 14px; background: var(--bg);
+  transition: border-color var(--transition);
+}
+.panel:hover { border-color: #3a3a44; }
+.panel h2 {
+  font-size: 11px; margin: 0 0 11px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  display: flex; align-items: center; gap: 6px;
+}
+.panel h2 svg { opacity: 0.6; }
+.verdict {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-weight: 700; font-size: 14px; padding: 4px 12px; border-radius: 6px;
+  background: var(--accent-dim); color: var(--accent); border: 1px solid #5a2a20;
+  letter-spacing: 0.03em;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
+.chip {
+  font-size: 11px; padding: 2px 9px; border-radius: 999px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  color: var(--text-strong);
+}
+.why { list-style: none; padding: 0; margin: 8px 0 0; font-size: 12px; }
+.why li { padding: 5px 0; border-top: 1px dashed var(--border); line-height: 1.4; }
+.why li.off { color: var(--faint); }
+.why li.on { color: var(--text); }
+.why q { color: var(--amber); font-family: var(--mono); font-style: normal; }
+
+/* Speed grid */
+.speed-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+.speed-cell { background: var(--panel-2); border-radius: 8px; padding: 8px 4px; border: 1px solid var(--border); }
+.speed-cell .big { font: 700 20px/1.2 var(--mono); color: var(--text-strong); }
+.speed-cell .label { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+/* Token usage */
+table.usage { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.usage td { padding: 6px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+table.usage tr:last-child td { border-bottom: none; }
+table.usage td.num { text-align: right; font-family: var(--mono); font-size: 12px; }
+table.usage .row-total td { color: var(--text-strong); font-weight: 600; }
+.amber { color: var(--amber); }
+.small-grey { font-size: 10px; color: var(--muted); display: block; }
+
+/* Token bar */
+.token-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.token-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; }
+.token-bar-fill.low { background: var(--red); }
+.token-bar-fill.mid { background: var(--amber); }
+
+/* ==================================================================
+   7. VIEW CODE MODAL
+   ================================================================== */
+.modal {
+  position: fixed; inset: 0; z-index: 10;
+  background: rgba(0,0,0,0.75); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+  animation: fadeIn 0.1s ease;
+}
+.modal-box {
+  width: min(900px, 100%); max-height: 90vh; overflow: auto;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px;
+}
+.modal-box pre {
+  margin: 6px 0 16px; padding: 12px; background: var(--code-bg);
+  border: 1px solid var(--border); border-radius: 8px; overflow: auto;
+  max-height: 300px; font: 12px/1.6 var(--mono);
+}
+.code-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.code-head h3 { margin: 0; font-size: 13px; color: var(--text-strong); }
+.modal-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.modal-title h3 { margin: 0; font-size: 16px; color: var(--text-strong); }
+
+/* ==================================================================
+   8. NARROW SCREENS
+   ================================================================== */
+@media (max-width: 1100px) {
+  html, body { height: auto; }
+  body { display: block; }
+  .layout { display: flex; flex-direction: column; }
+  .col { overflow: visible; }
+  .col-params, .col-insights { border: none; border-bottom: 1px solid var(--border); }
+  #transcript { min-height: 320px; max-height: 72vh; }
+  .msg, .msg.assistant { max-width: 100%; width: auto; }
+  .model-picker { min-width: 0; width: 100%; }
+  #prompt { min-height: 70px; }
+  .speed-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 600px) {
+  .topbar { gap: 8px; padding: 8px 12px; }
+  .live-badge span:not(.live-dot) { display: none; }
+  .speed-cell .big { font-size: 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== TOP BAR ===================== -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+    </svg>
+    <h1>LLM Playground</h1>
+  </div>
+  <div class="model-picker">
+    <select id="model" aria-label="Model"></select>
+    <span id="modelsStatus">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">Loading…</span>
+    </span>
+  </div>
+  <button id="viewCodeBtn">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:5px;vertical-align:-1px">
+      <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+    </svg>View code
+  </button>
+  <div class="spacer"></div>
+  <span class="live-badge"><span class="live-dot"></span><span>LIVE — real API calls</span></span>
+</header>
+
+<main class="layout">
+
+  <!-- ===================== LEFT COLUMN: PARAMETERS ===================== -->
+  <aside class="col col-params">
+    <label class="field" for="apiKey">Groq API Key</label>
+    <input id="apiKey" type="password" placeholder="gsk_..." autocomplete="off" spellcheck="false">
+    <div class="row">
+      <label><input id="rememberKey" type="checkbox"> Remember in this tab</label>
+      <button id="clearKey" class="small danger">Clear</button>
+    </div>
+    <p class="note">Your key stays in this browser — sent only to Groq.</p>
+
+    <hr class="divider">
+
+    <label class="field" for="tempRange">
+      Temperature
+      <span class="field-value" id="tempVal">0.70</span>
+    </label>
+    <div class="slider-row">
+      <input id="tempRange" type="range" min="0" max="2" step="0.05" value="0.7">
+      <input id="tempBox" type="number" min="0" max="2" step="0.05" value="0.7">
+    </div>
+
+    <label class="field" for="maxRange">
+      Max Tokens
+      <span class="field-value" id="maxVal">1024</span>
+    </label>
+    <div class="slider-row">
+      <input id="maxRange" type="range" min="64" max="8192" step="64" value="1024">
+      <input id="maxBox" type="number" min="64" max="32768" step="64" value="1024">
+    </div>
+    <p class="note">Free-tier accounts are capped per minute. On reasoning models this includes thinking tokens — set it too low and you get thinking but no answer.</p>
+
+    <label class="field" for="stopSeq">Stop Sequences</label>
+    <input id="stopSeq" type="text" placeholder="e.g. Input:, ###" aria-describedby="stopNote">
+    <p class="note" id="stopNote">Comma-separated, up to 4. Leave blank to omit.</p>
+    <p id="stopError" class="note" style="color:var(--red); min-height:14px;"></p>
+
+    <hr class="divider">
+
+    <label class="toggle" for="webSearch">
+      <input id="webSearch" type="checkbox" class="switch" role="switch" aria-label="Enable web search">
+      Web Search
+    </label>
+    <div id="webSearchReason" class="reason"></div>
+    <p class="note">Costs extra tokens and adds latency before the first word.</p>
+
+    <label class="toggle" for="reasoning">
+      <input id="reasoning" type="checkbox" class="switch" role="switch" aria-label="Enable reasoning mode">
+      Reasoning
+    </label>
+    <div id="reasoningReason" class="reason"></div>
+    <p class="note">Thinking tokens count against your quota and are invisible in the final answer.</p>
+
+    <hr class="divider">
+
+    <button id="resetBtn" class="wide danger">↺ Reset Conversation</button>
+  </aside>
+
+  <!-- ===================== CENTER COLUMN: CHAT ===================== -->
+  <section class="col col-chat">
+    <div class="chat-wrapper">
+      <div id="transcript" aria-live="polite" aria-label="Conversation transcript"></div>
+      <button id="scrollPill" hidden>↓ Scroll to bottom</button>
+      <div class="composer">
+        <textarea id="prompt" spellcheck="false" aria-label="Prompt" placeholder="Type your message… (Cmd/Ctrl+Enter to send)"></textarea>
+        <div class="composer-row">
+          <span class="hint">Cmd+Enter / Ctrl+Enter to send · Esc to stop</span>
+          <span class="char-count" id="charCount"></span>
+          <button id="sendBtn" class="primary">Send</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== RIGHT COLUMN: INSIGHTS ===================== -->
+  <aside class="col col-insights">
+    <div class="panel">
+      <h2>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Prompt Analysis
+      </h2>
+      <p id="analysisSource" class="note" style="margin:0 0 8px"></p>
+      <span id="verdict" class="verdict">ZERO-SHOT</span>
+      <div id="chips" class="chips"></div>
+      <p class="note">Example count = the largest count from any single rule (rules can overlap).</p>
+      <ul id="whyList" class="why"></ul>
+    </div>
+
+    <div class="panel">
+      <h2>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Speed — Last Reply
+      </h2>
+      <div class="speed-grid">
+        <div class="speed-cell"><div id="speedTtft" class="big">–</div><div class="label">ms first token</div></div>
+        <div class="speed-cell"><div id="speedTotal" class="big">–</div><div class="label">sec total</div></div>
+        <div class="speed-cell"><div id="speedTps" class="big">–</div><div class="label">tok / sec</div></div>
+      </div>
+      <p class="note" style="margin-top:8px">Web search and thinking both delay the first token.</p>
+    </div>
+
+    <div class="panel">
+      <h2>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        Token Usage
+      </h2>
+      <table class="usage">
+        <tr><td>Input</td><td id="useInput" class="num">–</td></tr>
+        <tr><td>Reasoning</td><td id="useReasoning" class="num">–</td></tr>
+        <tr><td>Output</td><td id="useOutput" class="num">–</td></tr>
+        <tr class="row-total"><td><b>Total</b></td><td id="useTotal" class="num">–</td></tr>
+        <tr><td>Remaining this minute<span id="useReset" class="small-grey"></span></td><td id="useLeft" class="num">–</td></tr>
+      </table>
+      <div class="token-bar" title="Tokens remaining this minute">
+        <div class="token-bar-fill" id="tokenBar" style="width:0%"></div>
+      </div>
+      <p class="note" style="margin-top:8px">Input grows every turn — the full conversation is re-sent each request.</p>
+    </div>
+  </aside>
+</main>
+
+<!-- ===================== VIEW CODE MODAL ===================== -->
+<div id="codeModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="View code">
+  <div class="modal-box">
+    <div class="modal-title">
+      <h3>This request as code</h3>
+      <button id="closeCode" class="small">✕ Close</button>
+    </div>
+    <p class="note">Built from current sliders + conversation. The key is never printed — set <code>GROQ_API_KEY</code> in your environment.</p>
+    <div class="code-head"><h3>curl</h3><button class="small" data-copy-target="curlCode">Copy</button></div>
+    <pre id="curlCode"></pre>
+    <div class="code-head"><h3>Python (OpenAI client → Groq)</h3><button class="small" data-copy-target="pythonCode">Copy</button></div>
+    <pre id="pythonCode"></pre>
+  </div>
+</div>
+
+<!-- ===================== CONFIRM MODAL ===================== -->
+<div id="confirmModal" class="modal" hidden role="dialog" aria-modal="true">
+  <div class="modal-box" style="max-width:380px">
+    <div class="modal-title">
+      <h3>Reset conversation?</h3>
+    </div>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 16px">This will clear the entire chat history. The API remembers nothing — this cannot be undone.</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="confirmCancel">Cancel</button>
+      <button id="confirmOk" class="danger">Yes, reset</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ==================================================================
+   1. SETTINGS
+   ================================================================== */
+const API_BASE = "https://api.groq.com/openai/v1";
+const KEY_STORAGE_NAME = "groq-playground-key";
+
+const FALLBACK_MODELS = [
+  "llama-3.1-8b-instant",
+  "llama-3.3-70b-versatile",
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
+  "qwen/qwen3-27b",
+];
+const PREFERRED_DEFAULT_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+const NON_CHAT_MODEL_PATTERN = /whisper|tts|orpheus|playai|prompt-guard|llama-guard/i;
+
+const DEFAULT_PROMPT = [
+  "Classify the sentiment of each review.",
+  "",
+  "Input: The battery lasts all day, love it.",
+  "Output: positive",
+  "",
+  "Input: Screen cracked after one week.",
+  "Output: negative",
+  "",
+  "Input: The camera is decent for the price.",
+  "Output:",
+].join("\n");
+
+/* ==================================================================
+   2. CAPABILITY MAP
+   ================================================================== */
+const CAPABILITY_RULES = [
+  { prefix: "openai/gpt-oss",         reasoning: "always",   effort: "low", webSearch: true  },
+  { prefix: "qwen/qwen3",             reasoning: "optional", effort: null,  webSearch: false },
+  { prefix: "minimaxai/minimax-m2",   reasoning: "always",   effort: null,  webSearch: false },
+  { prefix: "meta-models/muse-spark", reasoning: "always",   effort: "low", webSearch: false },
+];
+const NO_CAPABILITIES = { reasoning: "none", effort: null, webSearch: false };
+
+function getCapabilities(modelId) {
+  return CAPABILITY_RULES.find(rule => modelId.startsWith(rule.prefix)) || NO_CAPABILITIES;
+}
+
+/* ==================================================================
+   3. APP STATE
+   ================================================================== */
+let conversation      = [];
+let isStreaming       = false;
+let abortController   = null;
+let modelsLoadedForKey = null;
+let modelsRequest     = null;
+let wantsReasoning    = false;
+let wantsWebSearch    = false;
+let replyCounter      = 0;
+let lastSentPrompt    = "";
+let rateLimitMax      = null;   // for the token bar
+let userScrolledUp    = false;  // pause auto-scroll when user scrolls up
+
+const $ = id => document.getElementById(id);
+
+/* ==================================================================
+   4. API KEY FIELD
+   ================================================================== */
+function getKey() { return $("apiKey").value.trim(); }
+
+function saveKeyIfRemembered() {
+  try {
+    if ($("rememberKey").checked && getKey()) sessionStorage.setItem(KEY_STORAGE_NAME, getKey());
+    else sessionStorage.removeItem(KEY_STORAGE_NAME);
+  } catch (e) {}
+}
+
+function restoreKey() {
+  try {
+    const saved = sessionStorage.getItem(KEY_STORAGE_NAME);
+    if (saved) { $("apiKey").value = saved; $("rememberKey").checked = true; }
+  } catch (e) {}
+}
+
+$("apiKey").addEventListener("input", saveKeyIfRemembered);
+$("rememberKey").addEventListener("change", saveKeyIfRemembered);
+$("apiKey").addEventListener("blur", () => { if (getKey()) ensureModelsLoaded(); });
+$("clearKey").addEventListener("click", () => {
+  $("apiKey").value = "";
+  saveKeyIfRemembered();
+  modelsLoadedForKey = null;
+  fillModelDropdown(FALLBACK_MODELS, true);
+  setStatusIndicator("fallback", "Fallback list — paste a key to load live models");
+});
+
+/* ==================================================================
+   5. STATUS INDICATOR
+   ================================================================== */
+function setStatusIndicator(state, text) {
+  const dot  = $("statusDot");
+  const span = $("statusText");
+  dot.className  = "status-dot" + (state === "live" ? " live" : state === "loading" ? " loading" : state === "error" ? " error" : "");
+  span.textContent = text;
+}
+
+/* ==================================================================
+   6. SLIDERS + NUMBER BOXES
+   ================================================================== */
+function linkSlider(rangeId, boxId, valId) {
+  const range = $(rangeId), box = $(boxId), val = valId ? $(valId) : null;
+  const update = () => {
+    if (val) val.textContent = Number(range.value).toFixed(rangeId === "tempRange" ? 2 : 0);
+  };
+  range.addEventListener("input", () => { box.value = range.value; update(); });
+  box.addEventListener("input",   () => { range.value = box.value; update(); });
+  box.addEventListener("change",  () => { box.value = range.value; update(); });
+  update();
+}
+linkSlider("tempRange", "tempBox", "tempVal");
+linkSlider("maxRange",  "maxBox",  "maxVal");
+
+/* ==================================================================
+   7. MODEL DROPDOWN
+   ================================================================== */
+function ensureModelsLoaded() {
+  const key = getKey();
+  if (key && key !== modelsLoadedForKey) {
+    modelsLoadedForKey = key;
+    modelsRequest = loadModels(key);
+  }
+  return modelsRequest;
+}
+
+async function loadModels(key) {
+  setStatusIndicator("loading", "Loading models…");
+  try {
+    const resp = await fetch(API_BASE + "/models", { headers: { Authorization: "Bearer " + key } });
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const json = await resp.json();
+    const ids = json.data
+      .filter(m => m.active !== false && !NON_CHAT_MODEL_PATTERN.test(m.id))
+      .map(m => m.id)
+      .sort();
+    if (ids.length === 0) throw new Error("no chat models returned");
+    fillModelDropdown(ids, false);
+    setStatusIndicator("live", ids.length + " models loaded");
+  } catch (err) {
+    fillModelDropdown(FALLBACK_MODELS, true);
+    setStatusIndicator("error", "Failed to load models — using fallback list");
+  }
+}
+
+function fillModelDropdown(ids, isFallback) {
+  const select = $("model");
+  const previous = select.value;
+  select.innerHTML = "";
+  const group = document.createElement("optgroup");
+  group.label = isFallback ? "Fallback list" : "Live models from API";
+  for (const id of ids) {
+    const caps = getCapabilities(id);
+    const extras = [];
+    if (caps.reasoning !== "none") extras.push("🧠 reasoning");
+    if (caps.webSearch) extras.push("🔍 web search");
+    const option = new Option(id + (extras.length ? "  · " + extras.join(", ") : ""), id);
+    group.append(option);
+  }
+  select.append(group);
+  const choice = [previous, ...PREFERRED_DEFAULT_MODELS].find(id => ids.includes(id))
+    || ids.find(id => getCapabilities(id).reasoning === "none")
+    || ids[0];
+  select.value = choice;
+  applyCapabilityGating();
+}
+
+/* ==================================================================
+   8. CAPABILITY GATING
+   ================================================================== */
+function applyCapabilityGating() {
+  const caps = getCapabilities($("model").value);
+
+  const temp = $("tempRange");
+  const tempBox = $("tempBox");
+  const isAlwaysReasoning = caps.reasoning === "always";
+  temp.disabled = isAlwaysReasoning;
+  tempBox.disabled = isAlwaysReasoning;
+  if (isAlwaysReasoning) {
+    $("tempVal").textContent = "N/A";
+    $("tempVal").title = "Temperature has no effect on this reasoning model";
+  } else {
+    $("tempVal").textContent = Number(temp.value).toFixed(2);
+    $("tempVal").title = "";
+  }
+
+  const reasoning = $("reasoning");
+  if (caps.reasoning === "none") {
+    reasoning.checked = false; reasoning.disabled = true;
+    $("reasoningReason").textContent = "This model has no reasoning mode.";
+  } else if (caps.reasoning === "always") {
+    reasoning.checked = true; reasoning.disabled = true;
+    $("reasoningReason").textContent = "This model always reasons — you pay for it either way.";
+  } else {
+    reasoning.disabled = false; reasoning.checked = wantsReasoning;
+    $("reasoningReason").textContent = "";
+  }
+
+  const web = $("webSearch");
+  if (!caps.webSearch) {
+    web.checked = false; web.disabled = true;
+    $("webSearchReason").textContent = "Web search is only available on GPT-OSS models.";
+  } else {
+    web.disabled = false; web.checked = wantsWebSearch;
+    $("webSearchReason").textContent = "";
+  }
+}
+$("model").addEventListener("change", applyCapabilityGating);
+$("reasoning").addEventListener("change", e => { wantsReasoning = e.target.checked; });
+$("webSearch").addEventListener("change",  e => { wantsWebSearch  = e.target.checked; });
+
+/* ==================================================================
+   9. STOP SEQUENCE VALIDATION
+   ================================================================== */
+$("stopSeq").addEventListener("input", validateStopSeq);
+
+function getStopSequences() {
+  return $("stopSeq").value.split(",").map(s => s.trim()).filter(Boolean).slice(0, 4);
+}
+
+function validateStopSeq() {
+  const raw = $("stopSeq").value;
+  if (!raw.trim()) { $("stopSeq").classList.remove("invalid"); $("stopError").textContent = ""; return true; }
+  const parts = raw.split(",").map(s => s.trim()).filter(Boolean);
+  if (parts.length > 4) {
+    $("stopSeq").classList.add("invalid");
+    $("stopError").textContent = "⚠ Max 4 stop sequences — only the first 4 will be used.";
+    return false;
+  }
+  $("stopSeq").classList.remove("invalid");
+  $("stopError").textContent = "";
+  return true;
+}
+
+/* ==================================================================
+   10. TEXTAREA AUTO-RESIZE + CHAR COUNT
+   ================================================================== */
+$("prompt").addEventListener("input", () => {
+  const ta = $("prompt");
+  ta.style.height = "auto";
+  ta.style.height = Math.min(ta.scrollHeight, 320) + "px";
+  const len = ta.value.length;
+  $("charCount").textContent = len > 0 ? len.toLocaleString() + " chars" : "";
+});
+
+/* ==================================================================
+   11. PROMPT ANALYSIS
+   ================================================================== */
+function findAnsweredPairs(lines, questionPattern, answerPattern) {
+  const found = [];
+  let unanswered = 0, open = false;
+  for (const line of lines) {
+    if (questionPattern.test(line)) { open = true; continue; }
+    const m = line.match(answerPattern);
+    if (m && open) {
+      open = false;
+      if (m[1].trim()) found.push(line.trim());
+      else unanswered++;
+    }
+  }
+  return { found, unanswered };
+}
+
+function normalizePrompt(text) {
+  return text
+    .replace(/\*\*/g, "")
+    .replace(/[ \t]+((?:Output|Answer|Label|Sentiment|Category|Result|Response)\s*:)/gi, "\n$1")
+    .replace(/^(\s*Q\s*:.*?)[ \t]+(A\s*:)/gm, "$1\n$2");
+}
+
+function findLabelledPairs(lines) {
+  const labelled = [];
+  for (const line of lines) {
+    const m = line.match(/^\s*([A-Za-z][A-Za-z ]{0,24}?)\s*:(.*)$/);
+    if (m) labelled.push({ name: m[1], key: m[1].toLowerCase() });
+  }
+  const timesSeen = {};
+  for (const l of labelled) timesSeen[l.key] = (timesSeen[l.key] || 0) + 1;
+  let best = { found: [], unanswered: 0, names: null };
+  for (let i = 0; i + 1 < labelled.length; i++) {
+    const q = labelled[i], a = labelled[i + 1];
+    if (q.key === a.key || timesSeen[q.key] < 2) continue;
+    const result = findAnsweredPairs(lines,
+      new RegExp("^\\s*" + q.key + "\\s*:", "i"),
+      new RegExp("^\\s*" + a.key + "\\s*:(.*)$", "i"));
+    if (result.found.length > best.found.length) best = { ...result, names: [q.name, a.name] };
+  }
+  return best;
+}
+
+function analyzePrompt(rawText) {
+  const text = normalizePrompt(rawText);
+  const lines = text.split("\n");
+  const io       = findAnsweredPairs(lines, /^\s*Input\s*:/i, /^\s*Output\s*:(.*)$/i);
+  const qa       = findAnsweredPairs(lines, /^\s*Q\s*:/i,     /^\s*A\s*:(.*)$/i);
+  const labelled = findLabelledPairs(lines);
+  const arrows   = lines.filter(l => /\S\s*(->|=>)\s*\S/.test(l)).map(l => l.trim());
+  const quoted   = text.match(/"[^"\n]+"\s*(->|=>)\s*"[^"\n]+"/g) || [];
+  const blocks   = text.split(/^\s*(?:###|---)\s*$/m).filter(b => b.trim());
+  const blockExamples = blocks.length > 1 ? blocks.length - 1 : 0;
+
+  const exampleRules = [
+    { label: "Input: / Output: pairs",         count: io.found.length, quotes: io.found,
+      extra: io.unanswered ? io.unanswered + " empty Output: = the question being asked." : "" },
+    { label: "Q: / A: pairs",                  count: qa.found.length, quotes: qa.found,
+      extra: qa.unanswered ? qa.unanswered + " empty A: = the question." : "" },
+    { label: labelled.names
+        ? '"' + labelled.names[0] + ':" / "' + labelled.names[1] + ':" pairs'
+        : "Other labelled pairs",
+      count: labelled.found.length, quotes: labelled.found,
+      extra: labelled.unanswered ? labelled.unanswered + " empty answer ignored." : "" },
+    { label: "Arrow notation (-> or =>)",       count: arrows.length, quotes: arrows, extra: "" },
+    { label: 'Quoted pairs "x" -> "y"',         count: quoted.length, quotes: quoted, extra: "" },
+    { label: "Blocks split by ### or ---",      count: blockExamples,
+      quotes: blockExamples ? [blocks.length + " blocks found"] : [],
+      extra: blockExamples ? "Every block except the last counts as an example." : "" },
+  ];
+
+  const techniqueRules = [
+    { label: "Chain-of-Thought",    pattern: /think step by step|let'?s think/i },
+    { label: "Role prompting",      pattern: /you are an?\b|act as|pretend you are/i },
+    { label: "Negative constraint", pattern: /\b(do not|never|avoid)\b/i },
+    { label: "Format constraint",   pattern: /\b(json|table|bullets?|markdown)\b/i },
+    { label: "Temperature hint",    pattern: /\b(concise|verbose|creative|precise)\b/i },
+  ].map(rule => {
+    const m = text.match(rule.pattern);
+    return { label: rule.label, fired: !!m, quotes: m ? [m[0]] : [] };
+  });
+
+  const exampleCount = Math.max(0, ...exampleRules.map(r => r.count));
+  return { exampleCount, exampleRules, techniqueRules };
+}
+
+function renderPromptAnalysis() {
+  const boxText = $("prompt").value;
+  const useLastSent = !boxText.trim() && lastSentPrompt;
+  $("analysisSource").textContent = useLastSent
+    ? "Showing last sent prompt (box is empty)."
+    : boxText.trim() ? "Analysing prompt box in real time." : "Type a prompt to see analysis.";
+
+  const result = analyzePrompt(useLastSent ? lastSentPrompt : boxText);
+  const n = result.exampleCount;
+  $("verdict").textContent = n === 0 ? "ZERO-SHOT" : n === 1 ? "ONE-SHOT" : "FEW-SHOT (" + n + ")";
+
+  const chips = $("chips");
+  chips.innerHTML = "";
+  for (const t of result.techniqueRules.filter(t => t.fired)) {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.textContent = t.label;
+    chips.append(chip);
+  }
+
+  const list = $("whyList");
+  list.innerHTML = "";
+  for (const r of result.exampleRules) {
+    addWhyItem(list, r.count > 0, r.label + (r.count > 0 ? ": " + r.count : ": none"), r.quotes, r.extra);
+  }
+  for (const t of result.techniqueRules) {
+    addWhyItem(list, t.fired, t.label + (t.fired ? "" : ": not detected"), t.quotes, "");
+  }
+}
+
+function addWhyItem(list, fired, label, quotes, extra) {
+  const li = document.createElement("li");
+  li.className = fired ? "on" : "off";
+  li.append((fired ? "✓ " : "✗ ") + label);
+  if (fired && quotes.length) {
+    li.append(" — ");
+    quotes.slice(0, 3).forEach((text, i) => {
+      if (i > 0) li.append(", ");
+      const q = document.createElement("q");
+      q.textContent = text.length > 50 ? text.slice(0, 50) + "…" : text;
+      li.append(q);
+    });
+    if (quotes.length > 3) li.append(" +" + (quotes.length - 3) + " more");
+  }
+  if (extra) {
+    const note = document.createElement("div");
+    note.className = "note";
+    note.textContent = extra;
+    li.append(note);
+  }
+  list.append(li);
+}
+
+let analysisTimer = null;
+function schedulePromptAnalysis() {
+  clearTimeout(analysisTimer);
+  analysisTimer = setTimeout(renderPromptAnalysis, 300);
+}
+$("prompt").addEventListener("input", schedulePromptAnalysis);
+
+/* ==================================================================
+   12. MARKDOWN RENDERER
+   ================================================================== */
+function escapeHtml(text) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+             .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function renderMarkdown(source) {
+  const parts = escapeHtml(source).split("```");
+  return parts.map((part, i) => {
+    if (i % 2 === 0) return renderTextBlocks(part);
+    const newline = part.indexOf("\n");
+    const lang = newline === -1 ? "" : part.slice(0, newline).trim();
+    const code = newline === -1 ? part : part.slice(newline + 1);
+    return '<div class="code-wrap">' +
+           (lang ? '<span class="code-lang">' + escapeHtml(lang) + '</span>' : '') +
+           '<button class="small copy-code">Copy</button>' +
+           '<pre><code>' + (lang ? code.replace(/^\n/, "") : code).replace(/\n$/, "") + '</code></pre></div>';
+  }).join("");
+}
+
+function renderTextBlocks(text) {
+  let html = "", listType = null, paragraph = [], inTable = false, tableRows = [];
+  const flushParagraph = () => {
+    if (paragraph.length) html += "<p>" + paragraph.map(renderInline).join("<br>") + "</p>";
+    paragraph = [];
+  };
+  const closeList  = () => { if (listType) html += "</" + listType + ">"; listType = null; };
+  const openList   = type => { if (listType !== type) { closeList(); html += "<" + type + ">"; listType = type; } };
+  const flushTable = () => {
+    if (!tableRows.length) return;
+    html += "<table>";
+    tableRows.forEach((row, ri) => {
+      const tag = ri === 0 ? "th" : "td";
+      html += "<tr>" + row.map(c => "<" + tag + ">" + renderInline(c.trim()) + "</" + tag + ">").join("") + "</tr>";
+    });
+    html += "</table>";
+    tableRows = []; inTable = false;
+  };
+
+  for (const line of text.split("\n")) {
+    let m;
+    if ((m = line.match(/^\s*(#{1,4})\s+(.*)$/))) {
+      flushParagraph(); closeList(); flushTable();
+      const tag = m[1].length <= 2 ? "h3" : "h4";
+      html += "<" + tag + ">" + renderInline(m[2]) + "</" + tag + ">";
+    } else if (/^\s*\|/.test(line) && line.includes("|")) {
+      flushParagraph(); closeList();
+      const isDelim = /^\s*\|[\s|:-]+\|/.test(line);
+      if (!isDelim) {
+        const cells = line.split("|").slice(1, -1);
+        tableRows.push(cells);
+        inTable = true;
+      }
+    } else if ((m = line.match(/^\s*[-*]\s+(.*)$/))) {
+      flushParagraph(); flushTable(); openList("ul");
+      html += "<li>" + renderInline(m[1]) + "</li>";
+    } else if ((m = line.match(/^\s*\d+[.)]\s+(.*)$/))) {
+      flushParagraph(); flushTable(); openList("ol");
+      html += "<li>" + renderInline(m[1]) + "</li>";
+    } else if (line.trim() === "") {
+      flushParagraph(); closeList(); flushTable();
+    } else {
+      if (inTable) flushTable();
+      closeList(); paragraph.push(line);
+    }
+  }
+  flushParagraph(); closeList(); flushTable();
+  return html;
+}
+
+function renderInline(text) {
+  return text.split(/(`[^`]+`)/).map((piece, i) =>
+    i % 2 === 1
+      ? "<code>" + piece.slice(1, -1) + "</code>"
+      : piece
+          .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+          .replace(/_(.+?)_/g, "<em>$1</em>")
+          .replace(/~~(.+?)~~/g, "<del>$1</del>")
+  ).join("");
+}
+
+/* ==================================================================
+   13. BUILD REQUEST BODY
+   ================================================================== */
+function buildRequestBody(pendingUserText) {
+  const model = $("model").value;
+  const caps  = getCapabilities(model);
+
+  const messages = [...conversation.map(m => ({ role: m.role, content: m.content }))];
+  if (pendingUserText) messages.push({ role: "user", content: pendingUserText });
+
+  const body = {
+    model,
+    messages,
+    temperature: caps.reasoning === "always" ? undefined : Number($("tempRange").value),
+    max_completion_tokens: Number($("maxRange").value),
+  };
+  if (body.temperature === undefined) delete body.temperature;
+
+  const stop = getStopSequences();
+  if (stop.length) body.stop = stop;
+
+  if (caps.reasoning === "optional") {
+    if ($("reasoning").checked) body.reasoning_format = "parsed";
+    else body.reasoning_effort = "none";
+  } else if (caps.reasoning === "always") {
+    body.include_reasoning = true;
+    if (caps.effort) body.reasoning_effort = caps.effort;
+  }
+
+  if (caps.webSearch && $("webSearch").checked) body.tools = [{ type: "browser_search" }];
+
+  body.stream = true;
+  body.stream_options = { include_usage: true };
+  return body;
+}
+
+/* ==================================================================
+   14. SEND + STREAM
+   ================================================================== */
+async function send() {
+  const key  = getKey();
+  const text = $("prompt").value;
+  if (!key)        { addNotice("Paste your Groq API key in the left panel first."); $("apiKey").focus(); return; }
+  if (!text.trim()) return;
+  await ensureModelsLoaded();
+
+  conversation.push({ role: "user", content: text });
+  addUserBubble(text);
+  lastSentPrompt = text;
+  $("prompt").value = "";
+  $("prompt").style.height = "";
+  $("charCount").textContent = "";
+  schedulePromptAnalysis();
+
+  const body = buildRequestBody();
+  const view = createAssistantBubble(body);
+  const run  = { answer: "", thinking: "", sources: [], usage: null, finishReason: null, firstAnswerAt: null };
+  const startedAt = performance.now();
+
+  setStatus(view, body.tools ? "Searching the web…" : "Waiting for first token…");
+  setStreaming(true);
+  userScrolledUp = false;
+  abortController = new AbortController();
+  try {
+    const resp = await fetch(API_BASE + "/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: abortController.signal,
+    });
+    showRateLimit(resp.headers);
+    if (!resp.ok) throw await apiErrorFrom(resp);
+    await readStream(resp, chunk => handleChunk(chunk, run, view));
+    finishReply(view, run, startedAt, false);
+  } catch (err) {
+    if (err.name === "AbortError") {
+      finishReply(view, run, startedAt, true);
+    } else {
+      showError(view, err);
+      if (view.el.isConnected) forgetUnansweredQuestion();
+    }
+  } finally {
+    setStreaming(false);
+    abortController = null;
+  }
+}
+
+async function readStream(resp, onChunk) {
+  const reader  = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop();
+    for (const line of lines) processSseLine(line, onChunk);
+  }
+  processSseLine(buffer, onChunk);
+}
+
+function processSseLine(line, onChunk) {
+  line = line.trim();
+  if (!line.startsWith("data:")) return;
+  const data = line.slice(5).trim();
+  if (data === "[DONE]") return;
+  let chunk;
+  try { chunk = JSON.parse(data); } catch (e) { return; }
+  onChunk(chunk);
+}
+
+function handleChunk(chunk, run, view) {
+  if (chunk.error) throw makeApiError(0, chunk.error.message || "Error inside the stream");
+
+  const usage = (chunk.x_groq && chunk.x_groq.usage) || chunk.usage;
+  if (usage) run.usage = usage;
+
+  const choice = chunk.choices && chunk.choices[0];
+  if (!choice) return;
+  const delta = choice.delta || {};
+
+  if (delta.executed_tools) handleExecutedTools(delta.executed_tools, run, view);
+
+  if (delta.reasoning) {
+    run.thinking += delta.reasoning;
+    view.thinking.hidden = false;
+    if (run.firstAnswerAt === null) view.thinking.open = true;
+    view.thinkingText.textContent = run.thinking;
+    view.thinkingText.scrollTop = view.thinkingText.scrollHeight;
+    if (!run.sources.length && view.status.textContent.startsWith("Waiting")) view.status.hidden = true;
+  }
+
+  if (delta.content) {
+    if (run.firstAnswerAt === null) {
+      run.firstAnswerAt = performance.now();
+      view.thinking.open = false;
+      view.status.hidden = true;
+    }
+    run.answer += delta.content;
+    renderAnswer(view, run);
+  }
+
+  if (choice.finish_reason) run.finishReason = choice.finish_reason;
+  scrollTranscript();
+}
+
+function handleExecutedTools(tools, run, view) {
+  for (const tool of tools) {
+    const results = (tool.search_results && tool.search_results.results) || [];
+    if (results.length === 0) { setStatus(view, "Searching the web…"); continue; }
+    for (const r of results) {
+      if (!r || !r.url || run.sources.some(s => s.url === r.url)) continue;
+      run.sources.push({ title: r.title || String(r.url), url: String(r.url) });
+    }
+    renderSources(view, run.sources);
+  }
+}
+
+function finishReply(view, run, startedAt, stoppedByUser) {
+  const endedAt = performance.now();
+  renderAnswer(view, run);
+
+  if (view.el.isConnected) {
+    if (run.answer.trim()) conversation.push({ role: "assistant", content: run.answer });
+    else forgetUnansweredQuestion();
+  }
+
+  let badgeText, amber = false;
+  if (stoppedByUser)                        { badgeText = "stopped by you"; }
+  else if (run.finishReason === "length")   { badgeText = "hit max tokens (" + view.maxTokens + ")"; amber = true; }
+  else if (run.finishReason === "stop")     { badgeText = "end of sequence"; }
+  else if (!run.finishReason)               { badgeText = "reason not reported"; }
+  else                                       { badgeText = run.finishReason; }
+  view.badge.textContent = badgeText;
+  view.badge.className = "badge" + (amber ? " amber" : "");
+  view.badge.hidden = false;
+
+  if (!stoppedByUser && run.finishReason === "length" && !run.answer.trim()) {
+    view.warning.textContent = "⚠ No answer — entire token budget spent thinking. Raise Max Tokens.";
+    view.warning.hidden = false;
+  }
+
+  if (run.thinking) {
+    const n = reasoningTokensOf(run.usage);
+    view.thinkingSummary.textContent = n === null
+      ? "Thinking… (click to reopen)"
+      : "Thinking… (" + n.toLocaleString() + " reasoning tokens — click to reopen)";
+  }
+
+  if (run.sources.length) setStatus(view, "Searched web — " + run.sources.length + " sources", true);
+  else if (view.searchRequested && !stoppedByUser) setStatus(view, "Web search was on, but no sources returned.", true);
+  else view.status.hidden = true;
+
+  view.copyBtn.hidden = false;
+  view.copyBtn.onclick = () => copyText(run.answer, view.copyBtn);
+
+  showSpeed(run, startedAt, endedAt);
+  showUsage(run.usage);
+  scrollTranscript();
+}
+
+function forgetUnansweredQuestion() {
+  const last = conversation[conversation.length - 1];
+  if (last && last.role === "user") conversation.pop();
+}
+
+/* ==================================================================
+   15. CHAT BUBBLES
+   ================================================================== */
+function nowLabel() {
+  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function addUserBubble(text) {
+  const el = document.createElement("div");
+  el.className = "msg user";
+  const ts = document.createElement("div");
+  ts.className = "msg-timestamp";
+  ts.textContent = "You · " + nowLabel();
+  el.append(ts);
+  el.append(document.createTextNode(text));
+  $("transcript").append(el);
+  scrollTranscript();
+}
+
+function addNotice(text) {
+  const el = document.createElement("div");
+  el.className = "notice";
+  el.textContent = text;
+  $("transcript").append(el);
+  scrollTranscript();
+}
+
+function createAssistantBubble(body) {
+  const id = "reply-" + (++replyCounter);
+  const el = document.createElement("div");
+  el.className = "msg assistant";
+  el.innerHTML =
+    '<div class="msg-timestamp"></div>' +
+    '<details class="request"><summary>Request JSON (key hidden)</summary><pre></pre></details>' +
+    '<div class="meta"></div>' +
+    '<div class="status" hidden></div>' +
+    '<details class="thinking" hidden><summary>Thinking…</summary><div class="thinking-text"></div></details>' +
+    '<div class="answer"></div>' +
+    '<div class="sources"></div>' +
+    '<div class="warning" hidden></div>' +
+    '<div class="error" hidden></div>' +
+    '<div class="msg-footer"><span class="badge" hidden></span><button class="small" hidden>Copy</button></div>';
+
+  el.querySelector(".msg-timestamp").textContent = "Assistant · " + nowLabel() + " · " + body.model;
+  el.querySelector(".request pre").textContent = JSON.stringify(body, null, 2);
+  el.querySelector(".meta").textContent =
+    "temp " + (body.temperature !== undefined ? body.temperature : "N/A") +
+    " · max tokens " + body.max_completion_tokens;
+  $("transcript").append(el);
+  scrollTranscript();
+
+  const q = sel => el.querySelector(sel);
+  return {
+    id, el,
+    maxTokens: body.max_completion_tokens,
+    searchRequested: !!body.tools,
+    status:         q(".status"),
+    thinking:       q(".thinking"),
+    thinkingSummary:q(".thinking summary"),
+    thinkingText:   q(".thinking-text"),
+    answer:         q(".answer"),
+    sources:        q(".sources"),
+    warning:        q(".warning"),
+    error:          q(".error"),
+    badge:          q(".badge"),
+    copyBtn:        q(".msg-footer button"),
+  };
+}
+
+function setStatus(view, text, done) {
+  view.status.textContent = text;
+  view.status.className = "status" + (done ? " done" : "");
+  view.status.hidden = false;
+}
+
+function renderAnswer(view, run) {
+  const clean = run.answer.replace(/【[^】]*】/g, "");
+  let html = renderMarkdown(clean);
+  if (run.sources.length && clean.trim()) {
+    html += '<p class="note">Sources: ' + run.sources.map((s, i) =>
+      '<a class="cite" href="#' + view.id + "-src-" + i + '">[' + (i + 1) + "]</a>").join("") + "</p>";
+  }
+  view.answer.innerHTML = html;
+}
+
+function renderSources(view, sources) {
+  view.sources.innerHTML = "";
+  sources.forEach((source, i) => {
+    const card = document.createElement("a");
+    card.className = "source-card";
+    card.id = view.id + "-src-" + i;
+    if (/^https?:\/\//i.test(source.url)) card.href = source.url;
+    card.target = "_blank";
+    card.rel = "noopener noreferrer";
+    const title = document.createElement("span");
+    title.className = "title";
+    title.textContent = "[" + (i + 1) + "] " + source.title;
+    const host = document.createElement("span");
+    host.className = "host";
+    host.textContent = hostnameOf(source.url);
+    card.append(title, host);
+    view.sources.append(card);
+  });
+}
+
+function hostnameOf(url) {
+  try { return new URL(url).hostname; } catch (e) { return url; }
+}
+
+/* ==================================================================
+   16. SMART AUTO-SCROLL
+   ================================================================== */
+function scrollTranscript() {
+  if (userScrolledUp) return;
+  const t = $("transcript");
+  t.scrollTop = t.scrollHeight;
+}
+
+$("transcript").addEventListener("scroll", () => {
+  const t = $("transcript");
+  const atBottom = t.scrollHeight - t.scrollTop - t.clientHeight < 60;
+  userScrolledUp = !atBottom;
+  $("scrollPill").hidden = atBottom;
+});
+
+$("scrollPill").addEventListener("click", () => {
+  userScrolledUp = false;
+  $("scrollPill").hidden = true;
+  const t = $("transcript");
+  t.scrollTo({ top: t.scrollHeight, behavior: "smooth" });
+});
+
+/* ==================================================================
+   17. SPEED + TOKEN PANELS
+   ================================================================== */
+function reasoningTokensOf(usage) {
+  const details = usage && usage.completion_tokens_details;
+  return details && typeof details.reasoning_tokens === "number" ? details.reasoning_tokens : null;
+}
+
+function showSpeed(run, startedAt, endedAt) {
+  $("speedTtft").textContent  = run.firstAnswerAt ? Math.round(run.firstAnswerAt - startedAt) : "–";
+  $("speedTotal").textContent = ((endedAt - startedAt) / 1000).toFixed(2);
+  const u = run.usage;
+  let tps = "–";
+  if (u && u.completion_tokens && u.completion_time) {
+    tps = Math.round(u.completion_tokens / u.completion_time);
+  } else if (u && u.completion_tokens && run.firstAnswerAt) {
+    tps = Math.round(u.completion_tokens / ((endedAt - run.firstAnswerAt) / 1000));
+  }
+  $("speedTps").textContent = tps;
+}
+
+function showUsage(usage) {
+  const fmt = n => typeof n === "number" ? n.toLocaleString() : "–";
+  if (!usage) {
+    for (const id of ["useInput","useReasoning","useOutput","useTotal"]) $(id).textContent = "–";
+    return;
+  }
+  const reasoning = reasoningTokensOf(usage);
+  $("useInput").textContent     = fmt(usage.prompt_tokens);
+  $("useReasoning").textContent = fmt(reasoning);
+  $("useOutput").textContent    = fmt(reasoning === null ? usage.completion_tokens : usage.completion_tokens - reasoning);
+  $("useTotal").textContent     = fmt(usage.total_tokens);
+}
+
+function showRateLimit(headers) {
+  const remaining = headers.get("x-ratelimit-remaining-tokens");
+  const reset     = headers.get("x-ratelimit-reset-tokens");
+  const total     = headers.get("x-ratelimit-limit-tokens");
+  const cell = $("useLeft");
+  if (remaining === null) {
+    cell.textContent = "not reported";
+    cell.className = "num";
+    $("useReset").textContent = "";
+    $("tokenBar").style.width = "0%";
+    return;
+  }
+  const rem = Number(remaining);
+  cell.textContent = rem.toLocaleString();
+  cell.className = "num" + (rem < 1000 ? " amber" : "");
+  $("useReset").textContent = reset ? "resets in " + reset : "";
+
+  if (total) {
+    rateLimitMax = Number(total);
+  }
+  if (rateLimitMax) {
+    const pct = Math.min(100, (rem / rateLimitMax) * 100);
+    const bar = $("tokenBar");
+    bar.style.width = pct + "%";
+    bar.className = "token-bar-fill" + (pct < 15 ? " low" : pct < 40 ? " mid" : "");
+  }
+}
+
+function resetInsightPanels() {
+  for (const id of ["speedTtft","speedTotal","speedTps","useInput","useReasoning","useOutput","useTotal"]) {
+    $(id).textContent = "–";
+  }
+  $("useLeft").textContent = "–";
+  $("useReset").textContent = "";
+  $("tokenBar").style.width = "0%";
+}
+
+/* ==================================================================
+   18. FRIENDLY ERRORS
+   ================================================================== */
+function makeApiError(status, message) {
+  const err = new Error(message); err.status = status; return err;
+}
+
+async function apiErrorFrom(resp) {
+  let message = resp.statusText || "Request failed";
+  try {
+    const text = await resp.text();
+    try { message = JSON.parse(text).error.message || text; }
+    catch (e) { message = text || message; }
+  } catch (e) {}
+  return makeApiError(resp.status, message);
+}
+
+function friendlyError(status, message) {
+  const m = (message || "").toLowerCase();
+  if (status === 401) return "API key rejected — check it on console.groq.com.";
+  if (status === 429) return "Rate limit hit — tokens per minute exhausted. Wait ~1 min or lower Max Tokens.";
+  if (status === 413 || /context.*(length|window|too long|exceed)|too long|maximum context/.test(m))
+    return "Conversation too long — press Reset Conversation.";
+  if ((status === 400 || status === 404) && m.includes("model") &&
+      /decommission|not found|does not exist|unknown|no longer/.test(m))
+    return "This model is no longer available — pick another from the dropdown.";
+  return "API error" + (status ? " (HTTP " + status + ")" : "") + ".";
+}
+
+function showError(view, err) {
+  let friendly, raw = err.message;
+  if (typeof err.status === "number") {
+    friendly = friendlyError(err.status, err.message);
+    if (err.status) raw = "HTTP " + err.status + ": " + err.message;
+  } else if (/fetch|network|load failed/i.test(err.message)) {
+    friendly = "Could not reach the API — check your internet connection.";
+  } else {
+    friendly = "Something went wrong while reading the reply.";
+  }
+  view.status.hidden = true;
+  view.error.textContent = friendly;
+  const rawEl = document.createElement("span");
+  rawEl.className = "raw";
+  rawEl.textContent = raw;
+  view.error.append(rawEl);
+  view.error.hidden = false;
+  scrollTranscript();
+}
+
+/* ==================================================================
+   19. VIEW CODE MODAL
+   ================================================================== */
+function makeCurl(body) {
+  const json = JSON.stringify(body, null, 2).replace(/'/g, "'\\''");
+  return [
+    "curl -N " + API_BASE + "/chat/completions \\",
+    '  -H "Authorization: Bearer $GROQ_API_KEY" \\',
+    '  -H "Content-Type: application/json" \\',
+    "  -d '" + json + "'",
+  ].join("\n");
+}
+
+function toPython(value, indent) {
+  const pad = "    ".repeat(indent + 1), end = "    ".repeat(indent);
+  if (value === null)  return "None";
+  if (value === true)  return "True";
+  if (value === false) return "False";
+  if (typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    if (!value.length) return "[]";
+    return "[\n" + value.map(v => pad + toPython(v, indent + 1) + ",").join("\n") + "\n" + end + "]";
+  }
+  return "{\n" + Object.keys(value).map(k =>
+    pad + JSON.stringify(k) + ": " + toPython(value[k], indent + 1) + ","
+  ).join("\n") + "\n" + end + "}";
+}
+
+const GROQ_ONLY_PARAMS = ["include_reasoning", "reasoning_format"];
+
+function makePython(body) {
+  const lines = [
+    "import os",
+    "from openai import OpenAI",
+    "",
+    "client = OpenAI(",
+    '    base_url="https://api.groq.com/openai/v1",',
+    '    api_key=os.environ["GROQ_API_KEY"],',
+    ")",
+    "",
+    "stream = client.chat.completions.create(",
+  ];
+  const extra = {};
+  for (const [name, value] of Object.entries(body)) {
+    if (GROQ_ONLY_PARAMS.includes(name)) extra[name] = value;
+    else lines.push("    " + name + "=" + toPython(value, 1) + ",");
+  }
+  if (Object.keys(extra).length) {
+    lines.push("    # Groq-only settings go in extra_body:");
+    lines.push("    extra_body=" + toPython(extra, 1) + ",");
+  }
+  lines.push(
+    ")",
+    "",
+    "for chunk in stream:",
+    "    if chunk.choices and chunk.choices[0].delta.content:",
+    '        print(chunk.choices[0].delta.content, end="", flush=True)',
+    "print()",
+  );
+  return lines.join("\n");
+}
+
+function openCodePanel() {
+  const pending = $("prompt").value.trim() ? $("prompt").value : null;
+  const body = buildRequestBody(pending);
+  $("curlCode").textContent   = makeCurl(body);
+  $("pythonCode").textContent = makePython(body);
+  $("codeModal").hidden = false;
+}
+$("viewCodeBtn").addEventListener("click", openCodePanel);
+$("closeCode").addEventListener("click",   () => { $("codeModal").hidden = true; });
+$("codeModal").addEventListener("click",   e  => { if (e.target === $("codeModal")) $("codeModal").hidden = true; });
+
+/* ==================================================================
+   20. COPY BUTTONS
+   ================================================================== */
+async function copyText(text, button) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    const temp = document.createElement("textarea");
+    temp.value = text;
+    document.body.append(temp);
+    temp.select();
+    document.execCommand("copy");
+    temp.remove();
+  }
+  const label = button.dataset.label || (button.dataset.label = button.textContent);
+  button.textContent = "✓ Copied";
+  setTimeout(() => { button.textContent = label; }, 1400);
+}
+
+document.addEventListener("click", e => {
+  const codeButton  = e.target.closest(".copy-code");
+  if (codeButton)   copyText(codeButton.parentElement.querySelector("code").textContent, codeButton);
+  const panelButton = e.target.closest("[data-copy-target]");
+  if (panelButton)  copyText($(panelButton.dataset.copyTarget).textContent, panelButton);
+});
+
+/* ==================================================================
+   21. STREAMING CONTROLS
+   ================================================================== */
+function setStreaming(on) {
+  isStreaming = on;
+  $("sendBtn").textContent = on ? "■ Stop" : "Send";
+  $("sendBtn").className   = on ? "stop"   : "primary";
+}
+
+$("sendBtn").addEventListener("click", () => {
+  if (isStreaming) abortController.abort();
+  else send();
+});
+
+$("prompt").addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    if (!isStreaming) send();
+  }
+});
+
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (isStreaming) abortController.abort();
+  else { $("codeModal").hidden = true; $("confirmModal").hidden = true; }
+});
+
+/* ==================================================================
+   22. RESET WITH CONFIRM DIALOG
+   ================================================================== */
+$("resetBtn").addEventListener("click", () => { $("confirmModal").hidden = false; });
+$("confirmCancel").addEventListener("click", () => { $("confirmModal").hidden = true; });
+$("confirmOk").addEventListener("click", () => {
+  $("confirmModal").hidden = true;
+  if (isStreaming) abortController.abort();
+  conversation = [];
+  lastSentPrompt = "";
+  renderPromptAnalysis();
+  $("transcript").innerHTML = "";
+  addNotice("Conversation reset — the next message starts from scratch.");
+  resetInsightPanels();
+});
+$("confirmModal").addEventListener("click", e => {
+  if (e.target === $("confirmModal")) $("confirmModal").hidden = true;
+});
+
+/* ==================================================================
+   23. START-UP
+   ================================================================== */
+$("prompt").value = DEFAULT_PROMPT;
+restoreKey();
+fillModelDropdown(FALLBACK_MODELS, true);
+setStatusIndicator("fallback", "Paste a key to load live models");
+if (getKey()) ensureModelsLoaded();
+renderPromptAnalysis();
+</script>
+</body>
+</html>
