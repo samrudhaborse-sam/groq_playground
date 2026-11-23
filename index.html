@@ -3,30 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0e0e10">
+<meta name="theme-color" content="#ffffff">
 <title>LLM Playground</title>
 <style>
 /* ==================================================================
-   1. COLOURS AND FONTS
+   1. COLOURS AND FONTS  — White & Blue Theme
    ================================================================== */
 :root {
-  --bg: #0e0e10;
-  --panel: #16161a;
-  --panel-2: #1d1d22;
-  --border: #2a2a31;
-  --text: #d4d4d8;
-  --text-strong: #f0f0f3;
-  --muted: #8b8b95;
-  --faint: #55555e;
-  --accent: #f55036;
-  --accent-dim: #2e1611;
-  --green: #22c55e;
-  --green-dim: #0f2a1a;
-  --amber: #f5a524;
-  --amber-dim: #33260c;
-  --red: #f26b6b;
-  --red-dim: #2e1515;
-  --code-bg: #0a0a0c;
+  --bg: #f0f4f9;
+  --panel: #ffffff;
+  --panel-2: #e8f0fe;
+  --border: #c5d5f0;
+  --text: #1e293b;
+  --text-strong: #0f172a;
+  --muted: #64748b;
+  --faint: #94a3b8;
+  --accent: #2563eb;
+  --accent-dim: #dbeafe;
+  --green: #16a34a;
+  --green-dim: #dcfce7;
+  --amber: #d97706;
+  --amber-dim: #fef3c7;
+  --red: #dc2626;
+  --red-dim: #fee2e2;
+  --code-bg: #f1f5f9;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --radius: 8px;
@@ -52,15 +52,15 @@ a { color: var(--accent); }
    ================================================================== */
 .topbar {
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  padding: 10px 16px; background: var(--panel);
-  border-bottom: 1px solid var(--border);
+  padding: 10px 16px; background: #1e40af;
+  border-bottom: 1px solid #1d4ed8;
   position: sticky; top: 0; z-index: 5;
 }
 .topbar-brand { display: flex; align-items: center; gap: 8px; }
-.topbar-brand svg { opacity: 0.85; }
-.topbar h1 { font-size: 15px; margin: 0; color: var(--text-strong); letter-spacing: -0.01em; }
+.topbar-brand svg { opacity: 0.9; }
+.topbar h1 { font-size: 15px; margin: 0; color: #ffffff; letter-spacing: -0.01em; }
 .model-picker { display: flex; flex-direction: column; min-width: 240px; }
-#modelsStatus { font-size: 11px; color: var(--muted); margin-top: 2px; display: flex; align-items: center; gap: 5px; }
+#modelsStatus { font-size: 11px; color: #bfdbfe; margin-top: 2px; display: flex; align-items: center; gap: 5px; }
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
 .status-dot.live { background: var(--green); box-shadow: 0 0 6px var(--green); }
 .status-dot.loading { background: var(--amber); animation: pulse 1s infinite; }
@@ -68,9 +68,10 @@ a { color: var(--accent); }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 .spacer { flex: 1; }
 .live-badge {
-  background: var(--green-dim); color: var(--green); border: 1px solid #1a4a2a;
+  background: rgba(255,255,255,0.15); color: #bbf7d0; border: 1px solid rgba(134,239,172,0.4);
   border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600;
   display: flex; align-items: center; gap: 5px;
+  box-shadow: 0 1px 4px rgba(22,163,74,0.15);
 }
 .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
 
@@ -122,15 +123,15 @@ button {
   border-radius: var(--radius); padding: 6px 12px; font: inherit; cursor: pointer;
   transition: border-color var(--transition), background var(--transition), color var(--transition);
 }
-button:hover { border-color: var(--muted); background: #25252c; }
+button:hover { border-color: var(--accent); background: var(--accent-dim); }
 button:active { transform: scale(0.97); }
 button.primary {
   background: var(--accent); border-color: var(--accent); color: #fff;
   font-weight: 600; padding: 7px 20px;
 }
-button.primary:hover { background: #e8402a; border-color: #e8402a; }
+button.primary:hover { background: #1d4ed8; border-color: #1d4ed8; }
 button.stop { background: var(--red-dim); border-color: var(--red); color: var(--red); font-weight: 600; padding: 7px 20px; }
-button.stop:hover { background: #3a1c1c; }
+button.stop:hover { background: #fecaca; }
 button.small { padding: 3px 9px; font-size: 12px; border-radius: 6px; }
 button.wide { width: 100%; margin-top: 22px; }
 button.danger { color: var(--red); border-color: var(--red-dim); }
@@ -176,13 +177,14 @@ button.danger:hover { background: var(--red-dim); border-color: var(--red); }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
 .msg.user {
-  align-self: flex-end; background: var(--accent-dim); border-color: #5a2a20;
+  align-self: flex-end; background: var(--accent); color: #fff; border-color: #1d4ed8;
   white-space: pre-wrap; font: 13px/1.5 var(--mono);
   border-bottom-right-radius: 4px;
 }
 .msg.assistant {
   align-self: flex-start; width: 86%; background: var(--panel);
-  border-bottom-left-radius: 4px;
+  border-color: var(--border); border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 4px rgba(37,99,235,0.07);
 }
 .notice {
   align-self: center; color: var(--muted); font-size: 12px; text-align: center;
@@ -247,7 +249,7 @@ details pre, .thinking-text {
   background: var(--panel-2); color: var(--text); text-decoration: none;
   transition: border-color var(--transition), background var(--transition);
 }
-.source-card:hover { border-color: var(--accent); background: var(--accent-dim); }
+.source-card:hover { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
 .source-card .title { font-size: 12.5px; }
 .source-card .host { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
@@ -272,6 +274,25 @@ details pre, .thinking-text {
   box-shadow: 0 2px 10px rgba(0,0,0,0.4);
 }
 #scrollPill:hover { color: var(--text); border-color: var(--muted); }
+
+/* Topbar overrides — white text on blue */
+.topbar select {
+  background: rgba(255,255,255,0.15); color: #fff;
+  border-color: rgba(255,255,255,0.3);
+}
+.topbar select option { background: #1e3a8a; color: #fff; }
+.topbar #statusText { color: #bfdbfe; }
+.topbar #statusDot { background: #bfdbfe; }
+.topbar #statusDot.live { background: #86efac; box-shadow: 0 0 6px #86efac; }
+.topbar #statusDot.loading { background: #fde68a; animation: pulse 1s infinite; }
+.topbar #statusDot.error { background: #fca5a5; }
+#viewCodeBtn {
+  background: rgba(255,255,255,0.12); color: #fff;
+  border-color: rgba(255,255,255,0.25);
+}
+#viewCodeBtn:hover {
+  background: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.4);
+}
 
 /* Composer */
 .chat-wrapper { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
@@ -299,7 +320,7 @@ details pre, .thinking-text {
 .verdict {
   display: inline-flex; align-items: center; gap: 6px;
   font-weight: 700; font-size: 14px; padding: 4px 12px; border-radius: 6px;
-  background: var(--accent-dim); color: var(--accent); border: 1px solid #5a2a20;
+  background: var(--accent-dim); color: var(--accent); border: 1px solid #93c5fd;
   letter-spacing: 0.03em;
 }
 .chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
@@ -340,7 +361,7 @@ table.usage .row-total td { color: var(--text-strong); font-weight: 600; }
    ================================================================== */
 .modal {
   position: fixed; inset: 0; z-index: 10;
-  background: rgba(0,0,0,0.75); backdrop-filter: blur(4px);
+  background: rgba(30,64,175,0.18); backdrop-filter: blur(4px);
   display: flex; align-items: center; justify-content: center; padding: 16px;
   animation: fadeIn 0.1s ease;
 }
@@ -386,7 +407,7 @@ table.usage .row-total td { color: var(--text-strong); font-weight: 600; }
 <!-- ===================== TOP BAR ===================== -->
 <header class="topbar">
   <div class="topbar-brand">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
     </svg>
     <h1>LLM Playground</h1>
